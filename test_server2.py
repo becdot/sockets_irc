@@ -71,7 +71,8 @@ if sys.argv[1] == 'client':
     incoming.connect((host, port))
     outgoing.connect((host, port))
     username = raw_input("Please enter your username: ")
-    username_dict[username] = (incoming.getsockname(), outgoing.getsockname()) # Like this statement, gives the user a clear view of what's going on
+    username_dict[incoming] = username 
+    username_dict[outgoing] = username # Like this statement, gives the user a clear view of what's going on
     print "Your username is", username, "your incoming socket address is", incoming.getsockname(), \
         "and your outgoing socket address is", outgoing.getsockname()
 
@@ -85,8 +86,8 @@ if sys.argv[1] == 'client':
 
     def receive_message(sock):
         while True:
-            reply = sock.recv(1024)
-            print reply
+            sock.recv(1024)
+            # print reply
 
     outbox = threading.Thread(target=send_message, args=(outgoing,))
     outbox.start()
