@@ -12,18 +12,6 @@ class Client:
             getattr(self, type).connect((host, port))
             getattr(self, type).send('user:{0},type:{1}'.format(self.user, type))
 
-        # self.incoming = socket.socket()
-        # self.incoming.connect((host, port))
-        # self.incoming.send('user:{0}, ')
-        # self.outgoing = socket.socket()
-
-        # self.bothsockets = [self.incoming, self.outgoing]
-        # for s in self.bothsockets:
-        #     s.connect((host, port))
-        # meta = 'user:{0},incoming:{1},outgoing:{2}'.format \
-        #                     (self.user, self.incoming.getsockname()[1], self.outgoing.getsockname()[1])
-        # self.outgoing.send(meta)
-
     def receive_message(self, sock):
         "Receives messages from the server on the incoming socket"
 
@@ -62,30 +50,24 @@ class Server:
             e.g. {username: {'incoming': socket1, 'outgoing': socket2 """
 
         raw_info = sock.recv(100)
-        print 'we have received', raw_info
-        if raw_info:
-            info = raw_info.split(',')
-            userpair = info[0].split(',')[0]
-            user = userpair.split(':')[1]
-            self.users[user] = {}
-            for portpairs in info[1:]:
-                print portpairs
-                port_type = portpairs.split(':')[0]
-                self.users[user][port_type] = sock
+        assert raw_info, "No message received"
+        info = raw_info.split(',')
+        user = info[0].split(':')[1]
+        type = info[1].split(':')[1]
+        if user not in self.users:
+            self.users[user] = {type: sock}
+        else:
+            self.users[user][type] = sock
 
     def type_of_port(self, sock):
         "Returns either 'outgoing' or 'incoming'"
 
-        sock_port = int(sock.getpeername()[1])
-        for user, dict in self.users.iteritems():
-            for type, sock in dict.iteritems():
-                print type, sock.getpeername()[1]
-                # if sock_port == port and type == 'incoming':
-                #     print sock, 'is an incoming socket'
-                #     return 'incoming'
-                # if sock_port == port and type == 'outgoing':
-                #     print sock, 'is an outgoing socket'
-                #     return 'outgoing'
+        for user, dic in self.users.iteritems():
+            for type, socket in dic.iteritems():
+                if sock == socket:
+                    return type
+                assert "The socket was not found in the dictionary"
+
 
     def sibling_sock(self, sock):
         "Returns the counterpart (outgoing) socket to a user's incoming socket, and visa versa"
