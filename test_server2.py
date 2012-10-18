@@ -7,14 +7,22 @@ class Client:
 
     def __init__(self, host, port):
         self.user = raw_input("Please enter your username: ")
-        self.incoming = socket.socket()
-        self.outgoing = socket.socket()
-        self.bothsockets = [self.incoming, self.outgoing]
-        for s in self.bothsockets:
-            s.connect((host, port))
-        meta = 'user:{0},incoming:{1},outgoing:{2}'.format \
-                            (self.user, self.incoming.getsockname()[1], self.outgoing.getsockname()[1])
-        self.outgoing.send(meta)
+        for type in ['incoming', 'outgoing']:
+            setattr(self, type, socket.socket())
+            getattr(self, type).connect((host, port))
+            getattr(self, type).send('user:{0},type:{1}'.format(self.user, type))
+
+        # self.incoming = socket.socket()
+        # self.incoming.connect((host, port))
+        # self.incoming.send('user:{0}, ')
+        # self.outgoing = socket.socket()
+
+        # self.bothsockets = [self.incoming, self.outgoing]
+        # for s in self.bothsockets:
+        #     s.connect((host, port))
+        # meta = 'user:{0},incoming:{1},outgoing:{2}'.format \
+        #                     (self.user, self.incoming.getsockname()[1], self.outgoing.getsockname()[1])
+        # self.outgoing.send(meta)
 
     def receive_message(self, sock):
         "Receives messages from the server on the incoming socket"
@@ -46,7 +54,6 @@ class Server:
         self.read_list = [self.passive]
         self.write_list = []
         self.errored = []
-        self.readable, self.writeable, self.errored = select.select(self.read_list, self.write_list, self.errored)
 
         self.users = {} # {bec: {'incoming': sock1, 'outgoing': sock2}}
 
@@ -62,6 +69,7 @@ class Server:
             user = userpair.split(':')[1]
             self.users[user] = {}
             for portpairs in info[1:]:
+                print portpairs
                 port_type = portpairs.split(':')[0]
                 self.users[user][port_type] = sock
 
@@ -93,7 +101,8 @@ class Server:
         "Performs the main server function of checking for new connections and sending out messages"
 
         while True:
-            for sock in self.readable:
+            readable, writeable, errored = select.select(self.read_list, self.write_list, self.errored)      
+            for sock in readable:
                 if sock is self.passive:
                     conn, addr = self.passive.accept()
                     print "Connection from :", addr # Do we need to setblocking(0) for client?
@@ -101,12 +110,12 @@ class Server:
                     print 'user dict', self.users
 
                     print self.type_of_port(conn)
-                    # if self.type_of_port(conn) == 'incoming':
-                    #     print 'socket is an incoming socket'
-                    #     self.write_list.append(conn)
-                    # elif self.type_of_port(conn) == 'outgoing':
-                    #     print 'socket is an outgoing socket'
-                    #     self.read_list.append(conn)
+                    if self.type_of_port(conn) == 'incoming':
+                        print 'socket is an incoming socket'
+                        self.write_list.append(conn)
+                    elif self.type_of_port(conn) == 'outgoing':
+                        print 'socket is an outgoing socket'
+                        self.read_list.append(conn)
 
                 else:
                     message = sock.recv(1024) 
