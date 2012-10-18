@@ -15,16 +15,22 @@ class Client:
     def receive_message(self, sock):
         "Receives messages from the server on the incoming socket"
 
-        while True:
+        # FIXME Just for testing! Should be while True
+        i = 0
+        while i < 5:
             reply = self.incoming.recv(1024)
             print reply
+            i += 1
 
     def send_message(self, sock):
         "Sends messages to the server on the outgoing socket"
 
-        while True:
+        # FIXME Just for testing! Should be while True
+        i = 0
+        while i < 5:
             message = raw_input('> ')
             self.outgoing.send(message)
+            i += 1
             if message == 'exit':
                 self.outgoing.shutdown(socket.SHUT_WR)
                 self.incoming.shutdown(socket.SHUT_RD)
@@ -79,6 +85,13 @@ class Server:
                 elif s == sock and type == 'outgoing':
                     return dict['incoming']
 
+    def send_to_others(self, socks_to_write_to, sock, message):
+        incoming = self.sibling_sock(sock)
+        assert incoming in socks_to_write_to, "The socket is not in the list of sockets sending data to the client"
+        socks_to_write_to.remove(incoming)
+        for s in socks_to_write_to:
+            s.send(message)
+
     def monitor(self):
         "Performs the main server function of checking for new connections and sending out messages"
 
@@ -89,14 +102,13 @@ class Server:
                     conn, addr = self.passive.accept()
                     print "Connection from :", addr # Do we need to setblocking(0) for client?
                     self.get_client_meta(conn)
-                    print 'user dict', self.users
+                    # print 'user dict', self.users
 
-                    print self.type_of_port(conn)
                     if self.type_of_port(conn) == 'incoming':
-                        print 'socket is an incoming socket'
+                        # print 'socket is an incoming socket'
                         self.write_list.append(conn)
                     elif self.type_of_port(conn) == 'outgoing':
-                        print 'socket is an outgoing socket'
+                        # print 'socket is an outgoing socket'
                         self.read_list.append(conn)
 
                 else:
@@ -105,8 +117,8 @@ class Server:
                         print sock.getpeername(), "says", message
                         #Should we add writeable.append(sock)?? then remove from writeable before closing?
                         if message == 'exit':
-                            print "About to close the sockets on port", sock.getpeername(), "and port", sibling_sock(sock).getpeername()
-                            for s in [sock, sibling_sock(sock)]:
+                            print "About to close the sockets on port", sock.getpeername(), "and port", self.sibling_sock(sock).getpeername()
+                            for s in [sock, self.sibling_sock(sock)]:
                                 s.close() # what's the difference between switching the ordering between this and 
                                 if s in read_list:
                                     print 'removed from read_list'
@@ -115,8 +127,7 @@ class Server:
                                     print 'removed from write_list'
                                     write_list.remove(s)
 
-                        for incoming in write_list:
-                            incoming.send(message)
+                        self.send_to_others(writeable, sock, message)
 
 host = '127.0.0.1'
 port = 1060
@@ -127,8 +138,8 @@ if sys.argv[1] == 'client':
     client = Client(host, port)
     outbox = threading.Thread(target=client.send_message, args=(client.outgoing,))
     inbox = threading.Thread(target=client.receive_message, args=(client.incoming,))
-    #outbox.start()
-    #inbox.start()
+    outbox.start()
+    inbox.start()
 
 
 
