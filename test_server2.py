@@ -1,3 +1,17 @@
+"""
+Questions:
+ - what does setblocking do, and why don't we need to use that?
+ - what do the different setsockopt() options mean?
+
+To do:
+  - Add usernames to messages to indicate who is talking
+  - Add while True to client.receive_message and client.send_message
+  - Make sure that exit command works (and threads don't continue to run)
+  - Add 'user exited' message when self/other clients disconnect
+  - Implement a receive_all function so that server and client can receive more than 1024 byes of data
+"""
+
+
 import socket
 import select
 import sys
@@ -15,7 +29,7 @@ class Client:
     def receive_message(self, sock):
         "Receives messages from the server on the incoming socket"
 
-        # FIXME Just for testing! Should be while True
+        # TODO Just for testing! Should be while True
         i = 0
         while i < 5:
             reply = self.incoming.recv(1024)
@@ -25,7 +39,7 @@ class Client:
     def send_message(self, sock):
         "Sends messages to the server on the outgoing socket"
 
-        # FIXME Just for testing! Should be while True
+        # TODO Just for testing! Should be while True
         i = 0
         while i < 5:
             message = raw_input('> ')
@@ -40,7 +54,7 @@ class Server:
 
     def __init__(self, host, port):
         self.passive = socket.socket()
-        self.passive.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # What do these options mean?
+        self.passive.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.passive.bind((host, port))
         self.passive.listen(5)
         print "Listening on port", port
@@ -49,7 +63,8 @@ class Server:
         self.write_list = []
         self.errored = []
 
-        self.users = {} # {bec: {'incoming': sock1, 'outgoing': sock2}}
+        # {bec: {'incoming': sock1, 'outgoing': sock2}}
+        self.users = {} 
 
     def get_client_meta(self, sock):
         """ Adds username, socket type, and socket to self.users
@@ -93,39 +108,36 @@ class Server:
             s.send(message)
 
     def monitor(self):
-        "Performs the main server function of checking for new connections and sending out messages"
+        "Performs the main server functions of checking for new connections and sending out messages to clients"
 
         while True:
             readable, writeable, errored = select.select(self.read_list, self.write_list, self.errored)      
             for sock in readable:
-                if sock is self.passive:
+                if sock is self.passive: # A new connection is waiting to be made
                     conn, addr = self.passive.accept()
-                    print "Connection from :", addr # Do we need to setblocking(0) for client?
+                    print "Connection from :", addr 
                     self.get_client_meta(conn)
                     # print 'user dict', self.users
 
                     if self.type_of_port(conn) == 'incoming':
-                        # print 'socket is an incoming socket'
                         self.write_list.append(conn)
                     elif self.type_of_port(conn) == 'outgoing':
-                        # print 'socket is an outgoing socket'
                         self.read_list.append(conn)
 
                 else:
                     message = sock.recv(1024) 
                     if message:
                         print sock.getpeername(), "says", message
-                        #Should we add writeable.append(sock)?? then remove from writeable before closing?
                         if message == 'exit':
                             print "About to close the sockets on port", sock.getpeername(), "and port", self.sibling_sock(sock).getpeername()
                             for s in [sock, self.sibling_sock(sock)]:
-                                s.close() # what's the difference between switching the ordering between this and 
-                                if s in read_list:
-                                    print 'removed from read_list'
-                                    read_list.remove(s) # this?
+                                s.close() 
+                                if s in self.read_list:
+                                    print s, 'removed from read_list'
+                                    self.read_list.remove(s) 
                                 else:
-                                    print 'removed from write_list'
-                                    write_list.remove(s)
+                                    print s, 'removed from write_list'
+                                    self.write_list.remove(s)
 
                         self.send_to_others(writeable, sock, message)
 
