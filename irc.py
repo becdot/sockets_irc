@@ -33,23 +33,35 @@ class Client:
             getattr(self, type).connect((self.host, self.port))
             getattr(self, type).send('user:{0},type:{1}'.format(self.user, type))
 
-    def receive_message(self, sock):
+    def receive_message(self):
         "Receives messages from the server on the incoming socket"
 
-        while self.threads:
-            reply = self.incoming.recv(1024)
-            print reply
+        return self.incoming.recv(1024)
 
-    def send_message(self, sock):
+    def get_message_from_user(self):
+        "Returns raw input message from user"
+
+        return raw_input('> ')
+
+    def send_message(self, message):
         "Sends messages to the server on the outgoing socket"
 
+        self.outgoing.send(message)
+        if message == 'exit':
+            self.outgoing.shutdown(socket.SHUT_WR)
+            self.threads = False
+
+    def start_sending(self):
+        "Starts main loop of sending messages"
+
         while self.threads:
-            message = raw_input('> ')
-            self.outgoing.send(message)
-            if message == 'exit':
-                self.outgoing.shutdown(socket.SHUT_WR)
-                self.incoming.shutdown(socket.SHUT_RD)
-                self.threads = False
+            self.send_message(self.get_message_from_user())
+
+    def start_receiving(self):
+        "Starts main loop of receiving messages"
+
+        while self.threads:
+            print self.receive_message()
 
 class Server:
 
@@ -104,6 +116,15 @@ class Server:
                 elif s == sock and type == 'outgoing':
                     return dict['incoming']
 
+    def get_user(self, sock):
+        "Returns the user associated with the socket"
+
+        for user, dic in self.users.iteritems():
+            for type, socket in dic.iteritems():
+                if sock == socket:
+                    return user
+
+
     def send_to_others(self, socks_to_write_to, sock, message):
         "Sends a message to all other connected clients except for the originating client"
 
@@ -111,7 +132,7 @@ class Server:
         assert incoming in socks_to_write_to, "The socket is not in the list of sockets sending data to the client"
         socks_to_write_to.remove(incoming)
         for s in socks_to_write_to:
-            s.send(message)
+            s.send("{0}: {1}".format(self.get_user(sock), message))
 
     def monitor(self):
         "Performs the main server functions of checking for new connections and sending out messages to clients"
@@ -123,7 +144,7 @@ class Server:
                     conn, addr = self.passive.accept()
                     print "Connection from :", addr 
                     self.get_client_meta(conn)
-                    # print 'user dict', self.users
+                    print 'user dict', self.users
 
                     if self.type_of_port(conn) == 'incoming':
                         self.write_list.append(conn)
@@ -162,7 +183,7 @@ if __name__ == '__main__':
     if sys.argv[1] == 'client':
         client = Client(host, port)
         client.setup()
-        outbox = threading.Thread(target=client.send_message, args=(client.outgoing,))
-        inbox = threading.Thread(target=client.receive_message, args=(client.incoming,))
+        outbox = threading.Thread(target=client.start_sending)
+        inbox = threading.Thread(target=client.start_receiving)
         outbox.start()
         inbox.start()
