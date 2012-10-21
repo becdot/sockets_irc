@@ -1,11 +1,11 @@
 """
 To do:
-  - Add usernames to messages to indicate who is talking -- KIND OF
+  - Improve message printing so that partially-typed messages don't get cut off -- NOT DONE
+  - Add usernames to messages to indicate who is talking -- PARTIALLY DONE
   - Make sure that exit command works (and threads don't continue to run) -- DONE
   - Exit the server loop when there are no more connected sockets  -- DONE
   - Add 'user exited' message when self/other clients disconnect  -- DONE
-  - Implement a receive_all function so that server and client can receive more than 1024 byes of data
-  - Call setup on both client and server sides -- DONE
+  - Implement a receive_all function so that server and client can receive more than 1024 byes of data -- NOT DONE
 """
 
 

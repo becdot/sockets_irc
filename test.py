@@ -1,5 +1,5 @@
 import unittest
-from test_server2 import Client, Server
+from irc import Client, Server
 
 class FakeSocket():
     did_message_send = False
@@ -15,9 +15,6 @@ class FakeSocket():
     shut = False
     def shutdown(self, type):
         self.shut = True
-
-
-
 
 class TestSequenceFunctions(unittest.TestCase):
 
@@ -137,11 +134,6 @@ class TestSequenceFunctions(unittest.TestCase):
         user2 = server.get_user(fakesock4)
         self.assertEquals(user1, 'bec')
         self.assertEquals(user2, 'jess')
-
-
-
-
-
 
 
 if __name__ == '__main__':
