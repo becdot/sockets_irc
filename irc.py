@@ -1,14 +1,9 @@
 """
-Questions:
- - How does setblocking work, and should the socket be set as nonblocking? -- No, because threads take care of this
- - What do the different setsockopt() options mean? -- man 2 setsockopt
- - How does the select.select() function work?
-
 To do:
-  - Add usernames to messages to indicate who is talking
+  - Add usernames to messages to indicate who is talking -- KIND OF
   - Make sure that exit command works (and threads don't continue to run) -- DONE
-  - Exit the server loop when there are no more connected sockets
-  - Add 'user exited' message when self/other clients disconnect
+  - Exit the server loop when there are no more connected sockets  -- DONE
+  - Add 'user exited' message when self/other clients disconnect  -- DONE
   - Implement a receive_all function so that server and client can receive more than 1024 byes of data
   - Call setup on both client and server sides -- DONE
 """
@@ -41,7 +36,7 @@ class Client:
     def get_message_from_user(self):
         "Returns raw input message from user"
 
-        return raw_input('> ')
+        return raw_input('{0}: '.format(self.user))
 
     def send_message(self, message):
         "Sends messages to the server on the outgoing socket"
@@ -83,12 +78,17 @@ class Server:
         self.errored = []
 
     def get_client_meta(self, sock):
-        """ Adds username, socket type, and socket to self.users
-            e.g. {username: {'incoming': socket1, 'outgoing': socket2 """
+        "Returns the socket and user metadata received from the initial socket connection"
 
         raw_info = sock.recv(100)
         assert raw_info, "No message received"
-        info = raw_info.split(',')
+        return raw_info
+
+    def parse_client_meta(self, user_info, sock):
+        """ Adds username, socket type, and socket to self.users
+        e.g. {username: {'incoming': socket1, 'outgoing': socket2 """
+
+        info = user_info.split(',')
         user = info[0].split(':')[1]
         type = info[1].split(':')[1]
         if user not in self.users:
@@ -128,11 +128,15 @@ class Server:
     def send_to_others(self, socks_to_write_to, sock, message):
         "Sends a message to all other connected clients except for the originating client"
 
+        user = self.get_user(sock)
         incoming = self.sibling_sock(sock)
         assert incoming in socks_to_write_to, "The socket is not in the list of sockets sending data to the client"
         socks_to_write_to.remove(incoming)
         for s in socks_to_write_to:
-            s.send("{0}: {1}".format(self.get_user(sock), message))
+            if message == 'exit':
+                s.send("{0} has exited".format(user))
+            else:
+                s.send("{0}: {1}".format(self.get_user(sock), message))
 
     def monitor(self):
         "Performs the main server functions of checking for new connections and sending out messages to clients"
@@ -143,7 +147,8 @@ class Server:
                 if sock is self.passive: # A new connection is waiting to be made
                     conn, addr = self.passive.accept()
                     print "Connection from :", addr 
-                    self.get_client_meta(conn)
+                    user_info = self.get_client_meta(conn)
+                    self.parse_client_meta(user_info, conn)
                     print 'user dict', self.users
 
                     if self.type_of_port(conn) == 'incoming':
@@ -165,11 +170,11 @@ class Server:
                                 else:
                                     print s, 'removed from write_list'
                                     self.write_list.remove(s)
-
+                            if len(self.read_list) == 1 or len(self.write_list) == 0:
+                                sys.exit()
                         self.send_to_others(writeable, sock, message)
-            # print len(self.read_list), len(self.write_list)
-            # if not self.read_list or self.write_list:
-            #     break
+                        if len(self.read_list) == 1 or len(self.write_list) == 0:
+                            sys.exit()
 
 
 ### Run the program!

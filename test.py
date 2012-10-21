@@ -84,6 +84,61 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertTrue(fakesock.shut)
         self.assertFalse(client.threads)
 
+    def test_get_client_meta_not_in_dict(self):
+        "Client metadata is processed appropriately when the user is not already in the users dictionary"
+        fakesock = FakeSocket()
+        user_meta = 'user:bec,type:incoming'
+        server = Server()
+        server.users = {}
+        server.parse_client_meta(user_meta, fakesock)
+        self.assertEquals(str(server.users), "{'bec': {'incoming': %s}}" % (fakesock))
+
+    def test_get_client_meta_in_dict(self):
+        "Client metadata is processed appropriately when the user is already in the users dictionary"
+        fakeincoming = FakeSocket()
+        fakeoutgoing = FakeSocket()
+        user_meta = 'user:bec,type:outgoing'
+        server = Server()
+        server.users = {'bec': {'incoming': fakeincoming}}
+        server.parse_client_meta(user_meta, fakeoutgoing)
+        self.assertEquals(str(server.users), "{'bec': {'outgoing': %s, 'incoming': %s}}" % (fakeoutgoing, fakeincoming))
+
+    def test_type_of_port(self):
+        "Type of port returns correctly"
+        fakeincoming = FakeSocket()
+        fakeoutgoing = FakeSocket()
+        server = Server()
+        server.users = {'bec': {'incoming': fakeincoming, 'outgoing': fakeoutgoing}}
+        sock_type_in = server.type_of_port(fakeincoming)
+        sock_type_out = server.type_of_port(fakeoutgoing)
+        self.assertEquals(sock_type_in, 'incoming')
+        self.assertEquals(sock_type_out, 'outgoing')
+
+    def test_sibling_sock(self):
+        "Returns the correct sibling socket"
+        fakeincoming = FakeSocket()
+        fakeoutgoing = FakeSocket()
+        server = Server()
+        server.users = {'bec': {'incoming': fakeincoming, 'outgoing': fakeoutgoing}}
+        sibling_in = server.sibling_sock(fakeincoming)
+        sibling_out = server.sibling_sock(fakeoutgoing)
+        self.assertEquals(sibling_in, fakeoutgoing)
+        self.assertEquals(sibling_out, fakeincoming)
+
+    def test_get_user(self):
+        "Returns the correct user for a given socket"
+        fakesock1 = FakeSocket()
+        fakesock2 = FakeSocket()
+        fakesock3 = FakeSocket()
+        fakesock4 = FakeSocket()
+        server = Server()
+        server.users = {'bec': {'incoming': fakesock1, 'outgoing': fakesock2}, 'jess': {'incoming': fakesock3, 'outgoing': fakesock4}}
+        user1 = server.get_user(fakesock1)
+        user2 = server.get_user(fakesock4)
+        self.assertEquals(user1, 'bec')
+        self.assertEquals(user2, 'jess')
+
+
 
 
 
